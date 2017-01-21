@@ -2,7 +2,7 @@
  * Connection.cpp
  *
  *  Created on: Jan 21, 2017
- *      Author: lord
+ *      Author: Roman Vasilyev
  */
 
 #include "Connection.h"
@@ -57,7 +57,7 @@ int Connection::establish(int incoming_fd, std::pair<std::string, int> remote_se
 
 	std::cout << "Buffer events callbacks added" << std::endl;
 
-	int conn_result = connect(farseek_socket, (struct sockaddr *)&SockAddr, sizeof(SockAddr)) < 0;
+	int conn_result = connect(farseek_socket, static_cast<struct sockaddr*>(&SockAddr), sizeof(SockAddr)) < 0;
 	if(conn_result == -1) {
 		std::cout << strerror(errno) << std::endl;
 		return 1;
@@ -77,7 +77,7 @@ bool Connection::operator==(const Connection &other) const {
 }
 
 void Connection::conn_readcb(struct bufferevent *bev, void *user_data) {
-	Connection* connObject = (Connection*)user_data;
+	Connection* connObject = static_cast<Connection*>(user_data);
 	struct bufferevent *counterpart =
 			(connObject->bev_in == bev) ? connObject->bev_out : connObject->bev_in;
 
@@ -87,7 +87,7 @@ void Connection::conn_readcb(struct bufferevent *bev, void *user_data) {
 }
 
 void Connection::conn_eventcb(struct bufferevent *bev, short events, void *user_data) {
-	Connection* connObject = (Connection*)user_data;
+	Connection* connObject = static_cast<Connection*>(user_data);
 	struct bufferevent *counterpart =
 			(connObject->bev_in == bev) ? connObject->bev_out : connObject->bev_in;
 

@@ -2,7 +2,7 @@
  * Selector.cpp
  *
  *  Created on: Jan 21, 2017
- *      Author: lord
+ *      Author: Roman Vasilyev
  */
 
 #include "Selector.h"
@@ -18,7 +18,6 @@ std::pair<std::string, int> Selector::select(int port) {
 	int sz = target_rt.size();
 	int idx = rand() % sz;
 	return target_rt[idx];
-	//return std::pair<std::string, int>("127.0.0.1", 9000);
 }
 
 void Selector::read_routing_table() {
@@ -56,9 +55,6 @@ void Selector::read_routing_table() {
         }
         routing_table[port] = rt;
     }
-//	route rt;
-//	rt.push_back(std::pair<std::string, int>("127.0.0.1", 9000));
-//	routing_table[9995] = rt;
 }
 
 std::vector<int> Selector::get_incoming_ports() {

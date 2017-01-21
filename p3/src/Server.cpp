@@ -2,7 +2,7 @@
  * Server.cpp
  *
  *  Created on: Jan 21, 2017
- *      Author: lord
+ *      Author: Roman Vasilyev
  */
 
 #include "Server.h"

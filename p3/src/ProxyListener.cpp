@@ -2,7 +2,7 @@
  * ProxyListener.cpp
  *
  *  Created on: Jan 21, 2017
- *      Author: lord
+ *      Author: Roman Vasilyev
  */
 
 #include "ProxyListener.h"
@@ -70,7 +70,7 @@ int ProxyListener::start() {
 
 void ProxyListener::listener_cb(struct evconnlistener *listener, evutil_socket_t fd,
 	    struct sockaddr *sa, int socklen, void *user_data) {
-	ProxyListener* pProxyListener = (ProxyListener*) user_data;
+	ProxyListener* pProxyListener = static_cast<ProxyListener*>(user_data);
 	struct event_base *base = pProxyListener->base;
 
 	Connection* conn = new Connection(base, pProxyListener);
@@ -90,7 +90,7 @@ void ProxyListener::listener_cb(struct evconnlistener *listener, evutil_socket_t
 
 void ProxyListener::signal_cb(evutil_socket_t sig, short events, void *user_data)
 {
-	struct event_base *base = (event_base*)user_data;
+	struct event_base *base = static_cast<event_base*>user_data;
 	struct timeval delay = { 2, 0 };
 
 	std::cout << "Caught an interrupt signal; exiting cleanly in two seconds." << std::endl;
