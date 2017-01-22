@@ -90,7 +90,7 @@ void ProxyListener::listener_cb(struct evconnlistener *listener, evutil_socket_t
 
 void ProxyListener::signal_cb(evutil_socket_t sig, short events, void *user_data)
 {
-	struct event_base *base = static_cast<event_base*>user_data;
+	struct event_base *base = static_cast<event_base*>(user_data);
 	struct timeval delay = { 2, 0 };
 
 	std::cout << "Caught an interrupt signal; exiting cleanly in two seconds." << std::endl;

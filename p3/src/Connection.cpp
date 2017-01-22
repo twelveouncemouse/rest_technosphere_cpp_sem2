@@ -57,7 +57,7 @@ int Connection::establish(int incoming_fd, std::pair<std::string, int> remote_se
 
 	std::cout << "Buffer events callbacks added" << std::endl;
 
-	int conn_result = connect(farseek_socket, static_cast<struct sockaddr*>(&SockAddr), sizeof(SockAddr)) < 0;
+	int conn_result = connect(farseek_socket, reinterpret_cast<struct sockaddr*>(&SockAddr), sizeof(SockAddr)) < 0;
 	if(conn_result == -1) {
 		std::cout << strerror(errno) << std::endl;
 		return 1;
