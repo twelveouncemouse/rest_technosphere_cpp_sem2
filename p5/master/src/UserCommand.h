@@ -28,14 +28,16 @@ typedef enum {
 
 class UserCommand {
 public:
-	static UserCommand read_from_buffer(struct evbuffer* buff);
+	static UserCommand* read_from_buffer(struct evbuffer* buff);
 	cmd_operation_t get_operation() const;
 	const char* get_key_param() const;
 	char* get_value_param() const;
+	~UserCommand();
 
 private:
 	cmd_operation_t operation;
-	boost::shared_ptr<char> params_data;
+	//boost::shared_ptr<char> params_data;
+	char* params_data;
 	void parse(char* p_cmdstr);
 	void collect_token_from_buffer(std::string& s);
 	std::vector<std::string> tokens;

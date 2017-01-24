@@ -43,8 +43,9 @@ bool ClientConnection::operator==(const ClientConnection &other) const {
 void ClientConnection::conn_readcb(struct bufferevent *bev, void *user_data) {
 	ClientConnection* connObject = static_cast<ClientConnection*>(user_data);
 	struct evbuffer *input = bufferevent_get_input(bev);
-	UserCommand command = UserCommand::read_from_buffer(input);
+	UserCommand* command = UserCommand::read_from_buffer(input);
 	connObject->owner->execute_query(command, connObject->id);
+	delete command;
 }
 
 void ClientConnection::conn_eventcb(struct bufferevent *bev, short events, void *user_data) {
@@ -62,11 +63,15 @@ void ClientConnection::conn_eventcb(struct bufferevent *bev, short events, void 
 
 void ClientConnection::close(ClientConnection* connObject) {
 	bufferevent_free(connObject->bev_in);
-	std::cout << "Connections closed" << std::endl;
+	std::cout << "Connection " << connObject->id << " closed" << std::endl;
 	connObject->self_remove();
 }
 
 void ClientConnection::send_response(const char* response) {
 	struct evbuffer* buffer = bufferevent_get_output(bev_in);
 	evbuffer_add_printf(buffer, "%s\n", response);
+}
+
+const int ClientConnection::get_id() const {
+	return id;
 }

@@ -29,7 +29,7 @@ typedef enum {
 
 class UserCommand {
 public:
-	static UserCommand read_from_buffer(struct evbuffer* buff);
+	static UserCommand* read_from_buffer(struct evbuffer* buff);
 	cmd_operation_t get_operation() const;
 	const char* get_key_param() const;
 	char* get_value_param() const;

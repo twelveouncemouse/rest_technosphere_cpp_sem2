@@ -17,7 +17,7 @@ WorkerProcess::WorkerProcess(int my_id) :
 void WorkerProcess::start() {
 	init();
 
-	std::cout << "Emrakul DB v1.0 worker # " << worker_id << " started";
+	std::cout << "Emrakul DB v1.0 worker # " << worker_id << " started" << std::endl;
 	CommandMessage cmd_msg;
 	while (msgrcv(message_queue_id,
 			(struct msgbuf*) &cmd_msg,
@@ -73,7 +73,7 @@ void WorkerProcess::init() {
 	shared_mem_id = shmget(key, table_data_size, 0666);
 	shared_mem_addr = shmat(shared_mem_id, NULL, 0);
 
-	semaphores_id = semget(key, HASHTABLE_SEGMENTS_COUNT, 0666);
+	semaphores_id = semget(key, HASHTABLE_SEGMENTS_COUNT + 1, 0666);
 
 	SysVHashTable* p_table = new SysVHashTable(
 			shared_mem_addr,

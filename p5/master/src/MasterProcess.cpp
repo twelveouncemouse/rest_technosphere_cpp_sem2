@@ -90,7 +90,7 @@ void MasterProcess::listener_cb(struct evconnlistener *listener, evutil_socket_t
 
 	ClientConnection* conn = new ClientConnection(base, pMasterProcess);
 	pMasterProcess->conn_list.push_back(boost::shared_ptr<ClientConnection>(conn));
-	int err = (*conn).establish(fd);
+	int err = conn->establish(fd);
 	if (!err) {
 		std::cout << pMasterProcess->conn_list.size() << " connections registered" << std::endl;
 	}
@@ -107,16 +107,14 @@ void MasterProcess::signal_cb(evutil_socket_t sig, short events, void *user_data
 		ClientConnection* conn_ptr = conn.get();
 		ClientConnection::close(conn_ptr);
 	}
-	//struct event_base *base = static_cast<event_base*>(user_data);
+
 	struct timeval delay = { 2, 0 };
-
-	std::cout << "Caught an interrupt signal; exiting cleanly in two seconds." << std::endl;
-
+	std::cout << "Signal received, exiting..." << std::endl;
 	event_base_loopexit(base, &delay);
 }
 
-int MasterProcess::execute_query(UserCommand query, int client_connection_id) {
-	if (query.get_operation() == CMD_NONE) {
+int MasterProcess::execute_query(UserCommand* query, int client_connection_id) {
+	if (query->get_operation() == CMD_NONE) {
 		// Invalid command case
 		std::string response = "303 Invalid command or internal error";
 		send_response_to_client(response, client_connection_id);
@@ -124,8 +122,8 @@ int MasterProcess::execute_query(UserCommand query, int client_connection_id) {
 	}
 
 	CommandMessage comm_msg;
-	comm_msg.operation = query.get_operation();
-	memcpy(comm_msg.data, query.get_key_param(), RECORD_SIZE * sizeof(char));
+	comm_msg.operation = query->get_operation();
+	memcpy(comm_msg.data, query->get_key_param(), RECORD_SIZE * sizeof(char));
 	comm_msg.target_connection_id = client_connection_id;
 	comm_msg.mtype = 1 + rand() % WORKER_PROCESSES_COUNT;
 
@@ -136,28 +134,25 @@ int MasterProcess::execute_query(UserCommand query, int client_connection_id) {
 			sizeof(CommandMessage),
 			MASTER_MSGTYPE,
 			0) != -1) {
-		process_response_from_worker(comm_msg);
+		process_response_from_worker(&comm_msg);
 		return 0;
 	}
 	return -1;
 }
 
 void MasterProcess::init_ipc() {
-//	char* p_shared_mem = new char[RECORD_SIZE * 256];
-//	table_mem = boost::shared_ptr<char>(p_shared_mem);
-//	HashTableBase* p_table = new HashTableBase(table_mem.get(), 8, 32);
-//	hash_table = boost::shared_ptr<HashTableBase>(p_table);
     key_t key = ftok("./emrakul", 'd');
 
 	message_queue_id = msgget(key, 0666 | IPC_CREAT);
 	size_t table_data_size = HASHTABLE_SEGMENT_SIZE * HASHTABLE_SEGMENTS_COUNT * RECORD_SIZE;
 	shared_mem_id = shmget(key, table_data_size, 0666 | IPC_CREAT);
-    semaphores_id = semget(key, HASHTABLE_SEGMENTS_COUNT, 0666 | IPC_CREAT);
+    semaphores_id = semget(key, HASHTABLE_SEGMENTS_COUNT + 1, 0666 | IPC_CREAT);
 
-    ushort *init_sem = (ushort *) calloc(HASHTABLE_SEGMENTS_COUNT, sizeof(ushort));
+    ushort *init_sem = (ushort *) calloc(HASHTABLE_SEGMENTS_COUNT + 1, sizeof(ushort));
     for (int i = 0; i < HASHTABLE_SEGMENTS_COUNT; i++) {
         init_sem[i] = WORKER_PROCESSES_COUNT;
     }
+    init_sem[HASHTABLE_SEGMENTS_COUNT] = 1;
 
     semctl(semaphores_id, 0, SETALL, (union semun*)init_sem);
     free(init_sem);
@@ -198,22 +193,20 @@ void MasterProcess::relay_command_to_worker(CommandMessage* cmd_msg) {
 	msgsnd(message_queue_id, (struct msgbuf*) cmd_msg, sizeof(CommandMessage), 0);
 }
 
-void MasterProcess::process_response_from_worker(CommandMessage& response_msg) {
+void MasterProcess::process_response_from_worker(CommandMessage* response_msg) {
 	std::string response;
-	int err_code = response_msg.status; //-1;
-	switch (response_msg.operation) { //(query.get_operation()) {
+	int err_code = response_msg->status;
+	switch (response_msg->operation) {
 	case CMD_GET:
-		//err_code = hash_table.get()->get(query.get_key_param(), query.get_value_param());
 		if (!err_code) {
 			response.append("200 ");
-			response.append(response_msg.get_value());
+			response.append(response_msg->get_value());
 		}
 		else {
 			response = "301 Key not found";
 		}
 		break;
 	case CMD_SET:
-		//err_code = hash_table.get()->set(query.get_key_param(), query.get_value_param());
 		if (!err_code) {
 			response = "200 SET OK";
 		}
@@ -222,7 +215,6 @@ void MasterProcess::process_response_from_worker(CommandMessage& response_msg) {
 		}
 		break;
 	case CMD_DEL:
-		//err_code = hash_table.get()->del(query.get_key_param());
 		if (!err_code) {
 			response = "200 DEL OK";
 		}
@@ -237,12 +229,16 @@ void MasterProcess::process_response_from_worker(CommandMessage& response_msg) {
 		break;
 	}
 
-	send_response_to_client(response, response_msg.target_connection_id);
+	send_response_to_client(response, response_msg->target_connection_id);
 }
 
-void MasterProcess::send_response_to_client(std::string response,
+void MasterProcess::send_response_to_client(std::string& response,
 		int connection_id) {
 	std::cout << "Response to send: " << response << std::endl;
-	ClientConnection* conn = conn_list[connection_id].get();
-	conn->send_response(response.c_str());
+	for (size_t conn_idx = 0; conn_idx < conn_list.size(); conn_idx++) {
+		ClientConnection* current = conn_list[conn_idx].get();
+		if (current->get_id() == connection_id) {
+			current->send_response(response.c_str());
+		}
+	}
 }

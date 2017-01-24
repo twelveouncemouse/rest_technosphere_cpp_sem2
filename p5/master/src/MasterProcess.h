@@ -30,7 +30,7 @@ public:
 	int start();
 	MasterProcess(int port);
 	void remove_connection(ClientConnection* conn);
-	int execute_query(UserCommand query, int client_connection_id);
+	int execute_query(UserCommand* query, int client_connection_id);
 private:
 
 	static void listener_cb(struct evconnlistener *, evutil_socket_t,
@@ -40,8 +40,8 @@ private:
 	void shutdown_workers();
 	void release_ipc();
 	void relay_command_to_worker(CommandMessage* cmd_msg);
-	void process_response_from_worker(CommandMessage& cmd_msg);
-	void send_response_to_client(std::string response, int connection_id);
+	void process_response_from_worker(CommandMessage* cmd_msg);
+	void send_response_to_client(std::string& response, int connection_id);
 
 	const int port;
 	struct event_base* base;

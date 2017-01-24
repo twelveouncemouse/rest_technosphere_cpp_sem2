@@ -34,6 +34,8 @@ public:
 	void self_remove();
 	void send_response(const char* response);
 	bool operator==(const ClientConnection &other) const;
+	const int get_id() const;
+
 private:
 	static int id_base;
 	static void conn_readcb(struct bufferevent *bev, void *user_data);
