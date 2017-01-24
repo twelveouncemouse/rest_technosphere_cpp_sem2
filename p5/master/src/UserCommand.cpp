@@ -17,8 +17,6 @@ UserCommand* UserCommand::read_from_buffer(struct evbuffer* buff) {
 	UserCommand* cmd = new UserCommand();
 	char* p_cmdstr = nullptr;
 
-	//char* p_data = cmd->params_data.get();
-
 	int max_tries = 1000;
 	int n_try = 0;
 	while ((p_cmdstr = evbuffer_readln(buff, &n_read_out, EVBUFFER_EOL_CRLF)) == nullptr) {
@@ -26,10 +24,8 @@ UserCommand* UserCommand::read_from_buffer(struct evbuffer* buff) {
 			return cmd;
 		}
 	}
-	char temp_buf[RECORD_SIZE];
-	strncpy(temp_buf, p_cmdstr, RECORD_SIZE);
-	std::cout << "Command incoming: " << temp_buf << std::endl;
-	cmd->parse(temp_buf);
+	std::cout << "Command incoming: " << p_cmdstr << std::endl;
+	cmd->parse(p_cmdstr);
 
 	if (cmd->tokens.size() < 2) {
 		return cmd;
@@ -61,9 +57,9 @@ UserCommand* UserCommand::read_from_buffer(struct evbuffer* buff) {
 	strncpy(cmd->params_data, key_ptr, key_str.size() + 1);
 	cmd->tokens.clear();
 
-//	if (p_cmdstr != nullptr) {
-//		delete[] p_cmdstr;
-//	}
+	if (p_cmdstr != nullptr) {
+		delete[] p_cmdstr;
+	}
 	return cmd;
 }
 
