@@ -79,7 +79,7 @@ int HashTableBase::hash(const char* key) const {
 //-----------------------------------------------------------------------------
 
 HashTableBase::HashTableBase(void* p_memory) :
-	HashTableBase(p_memory, HASHTABLE_SEGMENTS_COUNT, HASHTABLE_SEGMENT_SIZE)
+		HashTableBase(p_memory, HASHTABLE_SEGMENTS_COUNT, HASHTABLE_SEGMENT_SIZE)
 { }
 
 HashTableBase::HashTableBase(void* p_memory, int n_blocks, int block_size) :

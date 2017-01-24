@@ -10,11 +10,13 @@
 MasterProcess::MasterProcess(int port) :
 port {port},
 base { nullptr },
-hash_table {nullptr}
+message_queue_id {0},
+shared_mem_id {0},
+semaphores_id {0}
 { }
 
 int MasterProcess::start() {
-	init();
+	init_ipc();
 
 	struct evconnlistener *listener;
 	struct event *signal_event_int, *signal_event_term;
@@ -61,6 +63,9 @@ int MasterProcess::start() {
 	event_base_free(base);
 
 	std::cout << "Listener at port " << port << " stopped" << std::endl;
+
+	shutdown_workers();
+	release_ipc();
 	return 0;
 }
 
@@ -107,34 +112,108 @@ void MasterProcess::signal_cb(evutil_socket_t sig, short events, void *user_data
 
 	std::cout << "Caught an interrupt signal; exiting cleanly in two seconds." << std::endl;
 
-	// TODO: TERM and INT signals handling
 	event_base_loopexit(base, &delay);
 }
 
-int MasterProcess::execute_query(UserCommand* query) {
-	// TODO: Execute command
-//	std::cout << "Prihod slovlen" << std::endl;
-//	std::cout << query.get_operation() << " key: " << query.get_key_param();
-//	if (query.get_operation() == CMD_SET) {
-//		std::cout << " value: " << query.get_value_param();
-//	}
-//	std::cout << std::endl;
+int MasterProcess::execute_query(UserCommand query, int client_connection_id) {
+	if (query.get_operation() == CMD_NONE) {
+		// Invalid command case
+		std::string response = "303 Invalid command or internal error";
+		send_response_to_client(response, client_connection_id);
+		return 0;
+	}
 
+	CommandMessage comm_msg;
+	comm_msg.operation = query.get_operation();
+	memcpy(comm_msg.data, query.get_key_param(), RECORD_SIZE * sizeof(char));
+	comm_msg.target_connection_id = client_connection_id;
+	comm_msg.mtype = 1 + rand() % WORKER_PROCESSES_COUNT;
+
+	relay_command_to_worker(&comm_msg);
+
+	if (msgrcv(message_queue_id,
+			(struct msgbuf*) &comm_msg,
+			sizeof(CommandMessage),
+			MASTER_MSGTYPE,
+			0) != -1) {
+		process_response_from_worker(comm_msg);
+		return 0;
+	}
+	return -1;
+}
+
+void MasterProcess::init_ipc() {
+//	char* p_shared_mem = new char[RECORD_SIZE * 256];
+//	table_mem = boost::shared_ptr<char>(p_shared_mem);
+//	HashTableBase* p_table = new HashTableBase(table_mem.get(), 8, 32);
+//	hash_table = boost::shared_ptr<HashTableBase>(p_table);
+    key_t key = ftok("./emrakul", 'd');
+
+	message_queue_id = msgget(key, 0666 | IPC_CREAT);
+	size_t table_data_size = HASHTABLE_SEGMENT_SIZE * HASHTABLE_SEGMENTS_COUNT * RECORD_SIZE;
+	shared_mem_id = shmget(key, table_data_size, 0666 | IPC_CREAT);
+    semaphores_id = semget(key, HASHTABLE_SEGMENTS_COUNT, 0666 | IPC_CREAT);
+
+    ushort *init_sem = (ushort *) calloc(HASHTABLE_SEGMENTS_COUNT, sizeof(ushort));
+    for (int i = 0; i < HASHTABLE_SEGMENTS_COUNT; i++) {
+        init_sem[i] = WORKER_PROCESSES_COUNT;
+    }
+
+    semctl(semaphores_id, 0, SETALL, (union semun*)init_sem);
+    free(init_sem);
+
+    void *p_shared_mem = shmat(shared_mem_id, NULL, 0);
+    memset(p_shared_mem, 0, sizeof(char) * table_data_size);
+    shmdt(p_shared_mem);
+
+    char worker_id[4];
+    for (int i = 0; i < WORKER_PROCESSES_COUNT; i++) {
+        if (fork() == 0) {
+            sprintf(worker_id, "%d", i + 2);
+            execlp("./p5-worker", "./p5-worker", worker_id, 0);
+            std::cout << "Error spawning worker process" << std::endl;
+            exit(1);
+        }
+    }
+}
+
+void MasterProcess::shutdown_workers() {
+    CommandMessage term_msg;
+    term_msg.operation = CMD_TERM;
+    for (int i = 0; i < WORKER_PROCESSES_COUNT; i++) {
+    	term_msg.mtype = i + 2;
+        relay_command_to_worker(&term_msg);
+    }
+
+    while (wait(NULL) > 0);
+}
+
+void MasterProcess::release_ipc() {
+    semctl(semaphores_id, 0, IPC_RMID, 0);
+    shmctl(shared_mem_id, IPC_RMID, 0);
+    msgctl(message_queue_id, IPC_RMID, 0);
+}
+
+void MasterProcess::relay_command_to_worker(CommandMessage* cmd_msg) {
+	msgsnd(message_queue_id, (struct msgbuf*) cmd_msg, sizeof(CommandMessage), 0);
+}
+
+void MasterProcess::process_response_from_worker(CommandMessage& response_msg) {
 	std::string response;
-	int err_code = -1;
-	switch (query->get_operation()) {
+	int err_code = response_msg.status; //-1;
+	switch (response_msg.operation) { //(query.get_operation()) {
 	case CMD_GET:
-		err_code = hash_table.get()->get(query->get_key_param(), query->get_value_param());
+		//err_code = hash_table.get()->get(query.get_key_param(), query.get_value_param());
 		if (!err_code) {
 			response.append("200 ");
-			response.append(query->get_value_param());
+			response.append(response_msg.get_value());
 		}
 		else {
 			response = "301 Key not found";
 		}
 		break;
 	case CMD_SET:
-		err_code = hash_table.get()->set(query->get_key_param(), query->get_value_param());
+		//err_code = hash_table.get()->set(query.get_key_param(), query.get_value_param());
 		if (!err_code) {
 			response = "200 SET OK";
 		}
@@ -143,7 +222,7 @@ int MasterProcess::execute_query(UserCommand* query) {
 		}
 		break;
 	case CMD_DEL:
-		err_code = hash_table.get()->del(query->get_key_param());
+		//err_code = hash_table.get()->del(query.get_key_param());
 		if (!err_code) {
 			response = "200 DEL OK";
 		}
@@ -154,19 +233,16 @@ int MasterProcess::execute_query(UserCommand* query) {
 	case CMD_NONE:
 		response = "303 Invalid command or internal error";
 		break;
+	case CMD_TERM:
+		break;
 	}
 
-	std::cout << "Response to send: " << response << std::endl;
-	// TODO: Determine target connection
-	ClientConnection* conn = conn_list[0].get();
-	//const char* response = "F-OFF!";
-	conn->send_response(response.c_str());
-	return 0;
+	send_response_to_client(response, response_msg.target_connection_id);
 }
 
-void MasterProcess::init() {
-	char* p_shared_mem = new char[RECORD_SIZE * 256];
-	table_mem = boost::shared_ptr<char>(p_shared_mem);
-	HashTableBase* p_table = new HashTableBase(table_mem.get(), 8, 32);
-	hash_table = boost::shared_ptr<HashTableBase>(p_table);
+void MasterProcess::send_response_to_client(std::string response,
+		int connection_id) {
+	std::cout << "Response to send: " << response << std::endl;
+	ClientConnection* conn = conn_list[connection_id].get();
+	conn->send_response(response.c_str());
 }

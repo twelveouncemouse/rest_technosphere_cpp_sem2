@@ -11,6 +11,7 @@
 #include <cstring>
 
 #include <string>
+#include <vector>
 #include <iostream>
 
 #include <boost/shared_ptr.hpp>

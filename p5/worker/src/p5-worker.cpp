@@ -1,5 +1,5 @@
 //============================================================================
-// Name        : p5-master.cpp
+// Name        : p5-worker.cpp
 // Author      : Roman Vasilyev
 // Version     :
 // Copyright   : Created for Technosphere Project @Mail.ru
@@ -7,18 +7,14 @@
 //============================================================================
 
 #include <iostream>
-using namespace std;
+//using namespace std;
+#include <cstdlib>
 
-#include "MasterProcess.h"
+#include "WorkerProcess.h"
 
-#define DEF_PORT 10500
-#define NUM_WORKERS 4
-
-int main() {
-	cout << "Emrakul DB v1.0 master process running..." << endl;
-	pid_t pid = getpid();
-	cout << "Master pid = " << pid << std::endl;
-	MasterProcess masterProc(DEF_PORT);
-	masterProc.start();
+int main(int argc, char** argv) {
+	int worker_id = atoi(argv[1]);
+	WorkerProcess worker_proc(worker_id);
+	worker_proc.start();
 	return 0;
 }

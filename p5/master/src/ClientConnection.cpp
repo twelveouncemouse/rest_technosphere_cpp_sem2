@@ -42,15 +42,9 @@ bool ClientConnection::operator==(const ClientConnection &other) const {
 
 void ClientConnection::conn_readcb(struct bufferevent *bev, void *user_data) {
 	ClientConnection* connObject = static_cast<ClientConnection*>(user_data);
-
 	struct evbuffer *input = bufferevent_get_input(bev);
-	UserCommand* command = UserCommand::read_from_buffer(input);
-
-	connObject->owner->execute_query(command);
-
-	// TODO: Send response
-
-	delete command;
+	UserCommand command = UserCommand::read_from_buffer(input);
+	connObject->owner->execute_query(command, connObject->id);
 }
 
 void ClientConnection::conn_eventcb(struct bufferevent *bev, short events, void *user_data) {
