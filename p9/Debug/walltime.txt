@@ -1,0 +1,28 @@
+100 elements test
+Serial QSort: 0.000015 s
+Parallel QSort: 0.000096 s
+
+1000 elements test
+Serial QSort: 0.000262 s
+Parallel QSort: 0.000248 s
+
+10000 elements test
+Serial QSort: 0.003124 s
+Parallel QSort: 0.001725 s
+
+100000 elements test
+Serial QSort: 0.033556 s
+Parallel QSort: 0.017072 s
+
+1000000 elements test
+Serial QSort: 0.184670 s
+Parallel QSort: 0.114613 s
+
+10000000 elements test
+Serial QSort: 1.966146 s
+Parallel QSort: 1.800485 s
+
+100000000 elements test
+Serial QSort: 22.733166 s
+Parallel QSort: 22.822301 s
+
